@@ -28,8 +28,8 @@ export function planMigration({ git, mainBranch = 'master', scrap = [] }) {
     if (!version) continue;
     const tag = formatVersion(version);
     const sha = git.sha(`origin/${branch}`);
-    if (git.isAncestor(sha, `origin/${mainBranch}`)) {
-      if (!tags.has(tag) && !toTag.has(tag)) toTag.set(tag, { version, sha, source: `branch ${branch}` });
+    if (git.containsWork(`origin/${mainBranch}`, sha)) {
+      if (!tags.has(tag) && !toTag.has(tag)) toTag.set(tag, { version, sha: git.mergeBase(sha, `origin/${mainBranch}`), source: `branch ${branch}` });
     } else {
       unmerged.push({ branch, version, sha, decision: scrap.includes(tag) ? 'scrap' : 'keep open' });
     }

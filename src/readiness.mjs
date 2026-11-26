@@ -16,8 +16,8 @@ export function evaluateReadiness(git, branch, mainBranch = 'master') {
     .remoteBranches()
     .map((b) => ({ b, v: parseReleaseBranch(b) }))
     .filter((r) => r.v && compareVersions(r.v, version) < 0)
-    .filter((r) => !git.isAncestor(`origin/${r.b}`, `origin/${mainBranch}`))
-    .filter((r) => !git.isAncestor(`origin/${r.b}`, `origin/${branch}`))
+    .filter((r) => !git.containsWork(`origin/${mainBranch}`, `origin/${r.b}`))
+    .filter((r) => !git.containsWork(`origin/${branch}`, `origin/${r.b}`))
     .sort((x, y) => compareVersions(x.v, y.v));
   if (blocking.length) {
     problems.push(`not merged or scrapped yet: ${blocking.map((r) => formatVersion(r.v)).join(', ')}`);

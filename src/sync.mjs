@@ -17,12 +17,14 @@ export async function syncRelease({ git, github, repository, branch, mainBranch,
   return { branch, ...result, pr: pr?.number ?? null };
 }
 
-/** Every open release branch that main isn't in yet, oldest first. */
+/** Every open, not-yet-merged release branch, oldest first. */
 export async function syncAllReleases({ git, github, repository, mainBranch, identity }) {
   const releases = git
     .remoteBranches()
     .map((b) => ({ b, v: parseReleaseBranch(b) }))
     .filter((r) => r.v)
+    // Already shipped and merged: nothing to bring it up to date for.
+    .filter((r) => !git.containsWork(`origin/${mainBranch}`, `origin/${r.b}`))
     .sort((x, y) => compareVersions(x.v, y.v))
     .map((r) => r.b);
   const results = [];

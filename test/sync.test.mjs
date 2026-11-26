@@ -126,3 +126,12 @@ test('a feature branch merged into a release is not deleted by the bot', async (
   assert.equal(r.deleted, false);
   assert.deepEqual(github.state.deletedRefs, []);
 });
+
+test('releases already merged into master are not synced again', async () => {
+  setup();
+  sb.checkout('master').merge('release/v2.16.0').push('master');
+  const before = sb.originSha('release/v2.16.0');
+  const results = await syncAllReleases({ git: sb.runner(), github: createFakeGitHub(), repository, mainBranch: 'master', identity });
+  assert.deepEqual(results, []);
+  assert.equal(sb.originSha('release/v2.16.0'), before);
+});

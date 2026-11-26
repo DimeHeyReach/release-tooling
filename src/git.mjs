@@ -34,6 +34,20 @@ export function createGit(cwd = process.cwd()) {
       return run('rev-parse', '--verify', `${ref}^{commit}`);
     },
 
+    /**
+     * True if every real (non-merge) commit of `ref` is already in `container`.
+     * Ignores merge commits, so a release that got an automatic "merge master
+     * into release" after shipping still counts as merged.
+     */
+    containsWork(container, ref) {
+      return run('rev-list', '--no-merges', '--count', `${container}..${ref}`) === '0';
+    },
+
+    /** Newest commit both refs share. */
+    mergeBase(a, b) {
+      return run('merge-base', a, b);
+    },
+
     /** True if `ancestor` is already contained in `descendant`. */
     isAncestor(ancestor, descendant) {
       return tryRun('merge-base', '--is-ancestor', ancestor, descendant);

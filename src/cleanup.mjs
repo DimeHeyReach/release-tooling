@@ -13,8 +13,8 @@ export function planCleanup({ git, mainBranch = 'master', days = 90, now = new D
     .sort((a, b) => compareVersions(a.version, b.version))
     .map(({ branch, version }) => {
       const sha = git.sha(`origin/${branch}`);
-      if (!git.isAncestor(sha, `origin/${mainBranch}`)) return { branch, sha, action: 'keep', reason: 'not merged' };
-      const mergedAt = git.mergedAt(sha, mainBranch);
+      if (!git.containsWork(`origin/${mainBranch}`, sha)) return { branch, sha, action: 'keep', reason: 'not merged' };
+      const mergedAt = git.mergedAt(git.mergeBase(sha, `origin/${mainBranch}`), mainBranch);
       if (!mergedAt) return { branch, sha, action: 'keep', reason: 'merge date unknown' };
       if (mergedAt > cutoff) return { branch, sha, action: 'keep', reason: `merged ${mergedAt.toISOString().slice(0, 10)}` };
       if (!tags.has(formatVersion(version))) return { branch, sha, action: 'keep', reason: `no ${formatVersion(version)} tag (run the migration)` };

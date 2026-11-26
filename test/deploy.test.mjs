@@ -221,3 +221,11 @@ test('merge gate lets the bot\'s workflow-update PR through, nothing else', () =
   assert.ok(evaluateMergeGate({ base: 'master', head: 'release-tooling/install', labels: [], author: bot, botLogin: bot }).ok);
   assert.ok(!evaluateMergeGate({ base: 'master', head: 'release-tooling/install', labels: [], author: 'mallory', botLogin: bot }).ok);
 });
+
+test('a shipped release that got master synced back into it still counts as merged', () => {
+  twoReleases();
+  sb.merge('release/v2.16.0').push('master');                                   // 2.16 ships
+  sb.checkout('release/v2.16.0').merge('master', 'Merge master into release/v2.16.0').push('release/v2.16.0'); // old sync behaviour
+  sb.checkout('release/v2.17.0').merge('master').push('release/v2.17.0').checkout('master');
+  assert.ok(evaluateReadiness(sb.runner(), 'release/v2.17.0').ok);
+});
