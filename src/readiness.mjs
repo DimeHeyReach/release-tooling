@@ -8,6 +8,10 @@ export const READY_CONTEXT = 'release-ready';
 
 export function evaluateReadiness(git, branch, mainBranch = 'master') {
   const version = parseReleaseBranch(branch);
+  // Already shipped and merged: nothing to wait for (redeploying it is a rollback).
+  if (git.isReleaseMerged(`origin/${mainBranch}`, `origin/${branch}`)) {
+    return { branch, ok: true, shipped: true, problems: [] };
+  }
   const problems = [];
   if (!git.isAncestor(`origin/${mainBranch}`, `origin/${branch}`)) {
     problems.push(`${mainBranch} has changes that are not in this release yet`);
@@ -27,7 +31,9 @@ export function evaluateReadiness(git, branch, mainBranch = 'master') {
 
 /** GitHub limits status descriptions to 140 characters. */
 export function statusDescription(result) {
-  const text = result.ok ? 'Ready to deploy to production' : `Not ready: ${result.problems.join('; ')}`;
+  const text = result.shipped
+    ? 'Shipped: already merged into master (redeploy only to roll back)'
+    : result.ok ? 'Ready to deploy to production' : `Not ready: ${result.problems.join('; ')}`;
   return text.length > 140 ? `${text.slice(0, 137)}...` : text;
 }
 
@@ -53,6 +59,6 @@ export function summarizeReadiness(results) {
     '',
     '| Release | Ready to deploy | Why not |',
     '|---|---|---|',
-    ...results.map((r) => `| \`${r.branch}\` | ${r.ok ? '✅ yes' : '⛔ no'} | ${r.problems.join('; ')} |`),
+    ...results.map((r) => `| \`${r.branch}\` | ${r.shipped ? '📦 shipped' : r.ok ? '✅ yes' : '⛔ no'} | ${r.problems.join('; ')} |`),
   ].join('\n');
 }

@@ -229,3 +229,11 @@ test('a shipped release that got master synced back into it still counts as merg
   sb.checkout('release/v2.17.0').merge('master').push('release/v2.17.0').checkout('master');
   assert.ok(evaluateReadiness(sb.runner(), 'release/v2.17.0').ok);
 });
+
+test('a shipped release shows as shipped, not "not ready", even after master moves on', () => {
+  twoReleases();
+  sb.merge('release/v2.16.0').push('master').commit('later work on master').push('master');
+  const r = evaluateReadiness(sb.runner(), 'release/v2.16.0');
+  assert.deepEqual([r.ok, r.shipped], [true, true]);
+  assert.match(statusDescription(r), /^Shipped: already merged/);
+});
