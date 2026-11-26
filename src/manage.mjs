@@ -198,24 +198,26 @@ async function applyRulesets(github, repo, wanted, mode) {
  * Leaving enforce removes the required approval. Any release PR with auto-merge
  * on would then merge by itself, so switch auto-merge off on them first.
  */
-async function disableReleaseAutoMerge(github, repo, mainBranch) {
+async function setReleaseAutoMerge(github, repo, mainBranch, on) {
   const open = await github.request('GET', `/repos/${repo}/pulls?state=open&base=${encodeURIComponent(mainBranch)}`);
   const numbers = [];
-  for (const pr of open.filter((p) => p.auto_merge && p.head.ref.startsWith('release/'))) {
-    await github.request('POST', '/graphql', {
-      query: 'mutation($id: ID!) { disablePullRequestAutoMerge(input: { pullRequestId: $id }) { clientMutationId } }',
+  for (const pr of open.filter((p) => p.head.ref.startsWith('release/') && Boolean(p.auto_merge) !== on)) {
+    const res = await github.request('POST', '/graphql', {
+      query: on
+        ? 'mutation($id: ID!) { enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: MERGE }) { clientMutationId } }'
+        : 'mutation($id: ID!) { disablePullRequestAutoMerge(input: { pullRequestId: $id }) { clientMutationId } }',
       variables: { id: pr.node_id },
     });
-    numbers.push(pr.number);
+    if (!res?.errors?.length) numbers.push(pr.number);
   }
   return numbers;
 }
 
 export async function manageRepo({ github, repo, mode, templatesDir, appId, mainBranch = 'master', demo = false }) {
   if (!MODES.includes(mode)) throw new Error(`Unknown mode "${mode}". Use ${MODES.join(', ')}.`);
-  const result = { repo, mode, install: null, rulesets: [], notes: [], autoMergeOff: [] };
+  const result = { repo, mode, install: null, rulesets: [], notes: [], autoMergeOff: [], autoMergeOn: [] };
 
-  if (mode !== 'enforce') result.autoMergeOff = await disableReleaseAutoMerge(github, repo, mainBranch);
+  if (mode !== 'enforce') result.autoMergeOff = await setReleaseAutoMerge(github, repo, mainBranch, false);
 
   if (mode !== 'off') {
     await ensureLabels(github, repo);
@@ -240,6 +242,8 @@ export async function manageRepo({ github, repo, mode, templatesDir, appId, main
         : `Rulesets failed: ${err.message}`);
     }
   }
+  // Back in enforce (approval required again): restore auto-merge on open release PRs.
+  if (mode === 'enforce' && result.rulesets.length) result.autoMergeOn = await setReleaseAutoMerge(github, repo, mainBranch, true);
   if (result.install?.pr) result.notes.push(`Merge PR #${result.install.pr} to finish installing the workflows.`);
   return result;
 }
@@ -255,6 +259,7 @@ export function summarizeManage(r) {
   }
   if (r.autoMergeOff.length) lines.push(`- Auto-merge turned off on release PR ${r.autoMergeOff.map((n) => `#${n}`).join(', ')} (no approval is required outside enforce).`);
   for (const r2 of r.rulesets) lines.push(`- Ruleset ${r2}.`);
+  if (r.autoMergeOn.length) lines.push(`- Auto-merge turned back on for release PR ${r.autoMergeOn.map((n) => `#${n}`).join(', ')}.`);
   if (r.mode !== 'enforce' && !r.rulesets.length) lines.push('- No rulesets (nothing blocks merges).');
   for (const n of r.notes) lines.push(`- ⚠️ ${n}`);
   return lines.join('\n');

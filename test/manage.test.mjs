@@ -182,5 +182,17 @@ test('leaving enforce turns auto-merge off on open release PRs first', async () 
   const gh = fakeRepo();
   gh.s.releasePulls = [{ number: 5, node_id: 'PR_5', auto_merge: { merge_method: 'merge' }, head: { ref: 'release/v0.2.0' } }];
   await run(gh, 'enforce');
-  assert.deepEqual(gh.s.graphql, [], 'enforce leaves auto-merge alone');
+  assert.deepEqual(gh.s.graphql, [], 'enforce leaves PRs that already auto-merge alone');
+});
+
+test('back to enforce: auto-merge restored on open release PRs, only once the rules exist', async () => {
+  const gh = fakeRepo();
+  gh.s.releasePulls = [{ number: 9, node_id: 'PR_9', auto_merge: null, head: { ref: 'release/v0.2.1' } }];
+  const r = await run(gh, 'enforce');
+  assert.deepEqual(gh.s.graphql, ['PR_9']);
+  assert.match(summarizeManage(r), /Auto-merge turned back on for release PR #9/);
+  const noRules = fakeRepo({ rulesetsForbidden: true });
+  noRules.s.releasePulls = gh.s.releasePulls;
+  await run(noRules, 'enforce');
+  assert.deepEqual(noRules.s.graphql, [], 'no rules means no required approval: do not auto-merge');
 });
