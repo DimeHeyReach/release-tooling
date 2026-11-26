@@ -16,7 +16,7 @@ export function evaluateReadiness(git, branch, mainBranch = 'master') {
     .remoteBranches()
     .map((b) => ({ b, v: parseReleaseBranch(b) }))
     .filter((r) => r.v && compareVersions(r.v, version) < 0)
-    .filter((r) => !git.containsWork(`origin/${mainBranch}`, `origin/${r.b}`))
+    .filter((r) => !git.isReleaseMerged(`origin/${mainBranch}`, `origin/${r.b}`))
     .filter((r) => !git.containsWork(`origin/${branch}`, `origin/${r.b}`))
     .sort((x, y) => compareVersions(x.v, y.v));
   if (blocking.length) {

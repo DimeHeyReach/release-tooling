@@ -43,6 +43,26 @@ export function createGit(cwd = process.cwd()) {
       return run('rev-list', '--no-merges', '--count', `${container}..${ref}`) === '0';
     },
 
+    /**
+     * True if release `ref` was actually merged into `main`: it has work of its
+     * own, and all of it is in main. Own work is found structurally (no
+     * timestamps): walk the release's own line (first parents) back to where it
+     * was cut from main's line. An RC/hotfix merge or a direct commit on the way
+     * is own work; an automatic "merge main into release" (second parent on
+     * main's line) is not. A freshly cut release has none, so it isn't merged.
+     */
+    isReleaseMerged(main, ref) {
+      if (!this.containsWork(main, ref)) return false;
+      const mainLine = new Set(run('rev-list', '--first-parent', main).split('\n'));
+      for (const line of run('rev-list', '--first-parent', '--parents', ref).split('\n')) {
+        const [sha, , secondParent] = line.split(' ');
+        if (mainLine.has(sha)) return false; // reached the cut point: no own work
+        if (secondParent && mainLine.has(secondParent)) continue; // sync merge
+        return true; // own work, and containsWork says it's all in main
+      }
+      return false;
+    },
+
     /** Newest commit both refs share. */
     mergeBase(a, b) {
       return run('merge-base', a, b);

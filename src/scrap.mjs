@@ -11,7 +11,7 @@ export async function scrapRelease({ git, github, repository, version: raw, main
   if (!git.remoteBranches().includes(branch)) throw new Error(`${branch} does not exist.`);
 
   const sha = git.sha(`origin/${branch}`);
-  if (git.containsWork(`origin/${mainBranch}`, sha)) {
+  if (git.isReleaseMerged(`origin/${mainBranch}`, sha)) {
     throw new Error(`${branch} is already merged into ${mainBranch}; its code is there for good, so it can't be scrapped.`);
   }
 

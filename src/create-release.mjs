@@ -10,7 +10,7 @@ export function findUnmergedReleases(git, mainBranch) {
   return git
     .remoteBranches()
     .map((b) => ({ branch: b, version: parseReleaseBranch(b) }))
-    .filter((r) => r.version && !git.containsWork(`origin/${mainBranch}`, `origin/${r.branch}`))
+    .filter((r) => r.version && !git.isReleaseMerged(`origin/${mainBranch}`, `origin/${r.branch}`))
     .sort((a, b) => compareVersions(a.version, b.version))
     .map((r) => r.branch);
 }

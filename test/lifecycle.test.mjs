@@ -161,3 +161,14 @@ test('migration ignores merges that only reached master indirectly', () => {
   sb.checkout('master').merge('release/v2.15.0', 'Merge pull request #20 from HeyReach/release/v2.15.0').push('master');
   assert.deepEqual(planMigration({ git: sb.runner() }).tags.map((t) => t.tag), ['v2.15.0']);
 });
+
+test('a freshly cut release with no work yet is not "merged": it can be scrapped and counts as unmerged', async () => {
+  sb = createSandbox();
+  sb.checkout('release/v0.3.0', { create: true }).push('release/v0.3.0').checkout('master'); // no commits of its own
+  const github = createFakeGitHub();
+  const next = createRelease(sb.runner(), { bump: 'minor' });
+  assert.deepEqual(next.plan.unmerged, ['release/v0.3.0'], 'still warned about');
+  const r = await scrapRelease({ git: sb.runner(), github, repository, version: 'v0.3.0' });
+  assert.equal(r.version, 'v0.3.0');
+  assert.ok(!sb.originBranches().includes('release/v0.3.0'));
+});

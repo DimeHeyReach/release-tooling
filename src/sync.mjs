@@ -24,7 +24,7 @@ export async function syncAllReleases({ git, github, repository, mainBranch, ide
     .map((b) => ({ b, v: parseReleaseBranch(b) }))
     .filter((r) => r.v)
     // Already shipped and merged: nothing to bring it up to date for.
-    .filter((r) => !git.containsWork(`origin/${mainBranch}`, `origin/${r.b}`))
+    .filter((r) => !git.isReleaseMerged(`origin/${mainBranch}`, `origin/${r.b}`))
     .sort((x, y) => compareVersions(x.v, y.v))
     .map((r) => r.b);
   const results = [];
