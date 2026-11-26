@@ -15,8 +15,8 @@ on:
       mode:
         description: What to turn it to
         type: choice
-        options: [warn, enforce, off]
-        default: warn
+        options: ['warn', 'enforce', 'off']   # quoted: YAML reads a bare off as false
+        default: 'warn'
       demo:
         description: Also install the "Simulate deploy" workflow (demo repos only)
         type: boolean
