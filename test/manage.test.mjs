@@ -7,7 +7,7 @@ const templatesDir = fileURLToPath(new URL('../templates', import.meta.url));
 const repo = 'DimeHeyReach/release-tooling-demo';
 
 /** A tiny GitHub for the repo-management endpoints. */
-function fakeRepo({ files = {}, rulesetsForbidden = false, rulesetsUnavailable = false, existing = [] } = {}) {
+function fakeRepo({ files = {}, rulesetsForbidden = false, rulesetsUnavailable = false, autoMergeIgnored = false, existing = [] } = {}) {
   const s = { variables: {}, labels: [], settings: {}, files: { ...files }, branchFiles: {}, refs: { master: 'm'.repeat(40) },
     pulls: [], rulesets: existing.map((r, i) => ({ id: i + 1, ...r })), calls: [] };
   const err = (status) => Object.assign(new Error(String(status)), { status });
@@ -22,7 +22,7 @@ function fakeRepo({ files = {}, rulesetsForbidden = false, rulesetsUnavailable =
     if (p === '/actions/variables' && method === 'POST') { s.variables[body.name] = body.value; return null; }
     if (p === '/labels' && method === 'POST') { if (s.labels.includes(body.name)) throw err(422); s.labels.push(body.name); return {}; }
     if (p.startsWith('/labels/') && method === 'PATCH') return {};
-    if (p === '' && method === 'PATCH') { Object.assign(s.settings, body); return {}; }
+    if (p === '' && method === 'PATCH') { Object.assign(s.settings, body); return { ...s.settings, ...(autoMergeIgnored ? { allow_auto_merge: false } : {}) }; }
     if ((m = p.match(/^\/contents\/(.+)\?ref=(.+)$/)) && method === 'GET') {
       const ref = decodeURIComponent(m[2]);
       const store = ref === 'master' ? s.files : s.branchFiles;
@@ -155,4 +155,9 @@ test('warn and off still work where the plan has no rulesets at all', async () =
   }
   const r = await run(fakeRepo({ rulesetsUnavailable: true }), 'enforce');
   assert.match(r.notes[0], /free personal plan/);
+});
+
+test('auto-merge silently ignored by GitHub is reported', async () => {
+  const r = await run(fakeRepo({ autoMergeIgnored: true }), 'warn');
+  assert.ok(r.notes.some((n) => /did not allow auto-merge/.test(n)));
 });

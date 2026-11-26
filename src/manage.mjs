@@ -198,7 +198,11 @@ export async function manageRepo({ github, repo, mode, templatesDir, appId, main
 
   if (mode !== 'off') {
     await ensureLabels(github, repo);
-    await github.request('PATCH', `/repos/${repo}`, { allow_auto_merge: true, allow_merge_commit: true });
+    const settings = await github.request('PATCH', `/repos/${repo}`, { allow_auto_merge: true, allow_merge_commit: true });
+    // GitHub silently ignores allow_auto_merge where the plan doesn't support it (e.g. free private repos).
+    if (settings && settings.allow_auto_merge === false) {
+      result.notes.push('GitHub did not allow auto-merge on this repo (its plan does not support it): approved release PRs must be merged by hand.');
+    }
     result.install = await installFiles(github, repo, workflowFiles(templatesDir, repo.split('/')[0], { demo }), mainBranch);
   }
   await setVariable(github, repo, mode);
@@ -226,7 +230,7 @@ export function summarizeManage(r) {
     lines.push(r.install.pr
       ? `- Workflow files: PR #${r.install.pr} (${r.install.changed.length} file(s)).`
       : '- Workflow files: already up to date.');
-    lines.push('- Labels created; auto-merge and merge commits allowed.');
+    lines.push('- Labels created; merge commits allowed; auto-merge requested.');
   }
   for (const r2 of r.rulesets) lines.push(`- Ruleset ${r2}.`);
   if (r.mode !== 'enforce' && !r.rulesets.length) lines.push('- No rulesets (nothing blocks merges).');
