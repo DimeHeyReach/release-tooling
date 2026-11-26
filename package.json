@@ -1,0 +1,8 @@
+{
+  "name": "release-tooling",
+  "private": true,
+  "type": "module",
+  "description": "Shared release automation for HeyReach repos",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

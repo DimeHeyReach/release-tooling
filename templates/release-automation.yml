@@ -1,0 +1,18 @@
+# Installed into product repos as .github/workflows/release-automation.yml by release-tooling's Manage repo workflow.
+# Runs only when the repo variable RELEASE_TOOLING_MODE is warn or enforce.
+# Nobody runs this by hand: it reacts to merges into release branches,
+# pushes to master, and pushes to release branches (to keep release-ready current).
+name: Release automation
+
+on:
+  pull_request:
+    branches: ['release/**']
+    types: [closed]
+  push:
+    branches: [master, 'release/**']
+
+jobs:
+  automate:
+    if: contains(fromJSON('["warn","enforce"]'), vars.RELEASE_TOOLING_MODE) && (github.event_name == 'push' || github.event.pull_request.merged)
+    uses: HeyReach/release-tooling/.github/workflows/release-automation.yml@v1
+    secrets: inherit

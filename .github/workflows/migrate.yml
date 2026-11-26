@@ -1,0 +1,61 @@
+# One-time migration, run from release-tooling itself (not copied into product
+# repos): Actions → Migrate a repo → Run workflow. Dry run by default.
+name: Migrate a repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Repo to migrate (name only, e.g. HeyReach-Gateway)
+        type: string
+        required: true
+      scrap:
+        description: Open unmerged releases to scrap, comma-separated (e.g. v2.13.0, v2.14.0). Leave empty on the first run
+        type: string
+        default: ''
+      dry_run:
+        description: Dry run (show what would happen, change nothing)
+        type: boolean
+        default: true
+      main_branch:
+        type: string
+        default: master
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Migrate ${{ inputs.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get a release bot token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ inputs.repository }}
+
+      - uses: actions/checkout@v4
+
+      - name: Check out ${{ inputs.repository }} (all branches and tags)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/${{ inputs.repository }}
+          token: ${{ steps.token.outputs.token }}
+          fetch-depth: 0
+          path: repo
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Migrate
+        env:
+          REPO_DIR: repo
+          SCRAP: ${{ inputs.scrap }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          MAIN_BRANCH: ${{ inputs.main_branch }}
+        run: node src/cli.mjs migrate

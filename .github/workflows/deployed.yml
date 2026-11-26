@@ -1,0 +1,63 @@
+# Shared handler for Microtica's "deployed" event. Product repos call it from
+# templates/deployed.yml. Microtica sends (production pipelines only):
+#   POST /repos/HeyReach/<repo>/dispatches
+#   { "event_type": "deployed",
+#     "client_payload": { "version": "2.16.0", "sha": "<full sha>", "environment": "production" } }
+name: Release deployed
+
+on:
+  workflow_call:
+    inputs:
+      main_branch:
+        type: string
+        default: master
+      tooling_ref:
+        description: Version of release-tooling to run. Keep it the same as the @ref in `uses:`
+        type: string
+        default: v1
+    secrets:
+      RELEASE_BOT_APP_ID:
+        required: true
+      RELEASE_BOT_PRIVATE_KEY:
+        required: true
+
+# Deploys are handled in the order they arrive, one at a time.
+concurrency:
+  group: release-tooling-deployed-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deployed:
+    name: Release deployed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get a release bot token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }},release-tooling
+
+      - name: Check out release-tooling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/release-tooling
+          ref: ${{ inputs.tooling_ref }}
+          token: ${{ steps.token.outputs.token }}
+          path: .release-tooling
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Record the deploy
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          MAIN_BRANCH: ${{ inputs.main_branch }}
+        run: node .release-tooling/src/cli.mjs deployed

@@ -1,0 +1,75 @@
+# DEMO ONLY: stands in for Microtica. Installed only when Manage repo runs with "demo".
+# It does exactly what Microtica's production pipeline must do:
+#   M1  before deploying, check the release-ready status of the release's latest commit
+#   M2  after a successful production deploy, send the "deployed" event
+# Non-production deploys skip both, like the real thing must.
+name: Simulate deploy (Microtica stand-in)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release to deploy, e.g. 2.16.0
+        type: string
+        required: true
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [production, staging]
+        default: production
+
+jobs:
+  deploy:
+    if: contains(fromJSON('["warn","enforce"]'), vars.RELEASE_TOOLING_MODE)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get a release bot token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+
+      - name: Find the commit to deploy
+        id: commit
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          version="v${VERSION#v}"
+          sha=$(gh api "repos/${{ github.repository }}/commits/release/$version" --jq .sha)
+          echo "version=${version#v}" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Deploying release/$version at ${sha:0:7} to ${{ inputs.environment }}"
+
+      - name: "M1: is it release-ready? (production only)"
+        if: inputs.environment == 'production'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          # Statuses come newest first; the first release-ready entry is the current one.
+          read -r state description < <(gh api "repos/${{ github.repository }}/commits/$SHA/statuses" \
+            --jq '[.[] | select(.context == "release-ready")][0] | "\(.state) \(.description)"')
+          if [ "$state" != "success" ]; then
+            echo "## ⛔ Deploy refused: ${description:-no release-ready status yet}" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "✅ release-ready"
+
+      - name: Deploy (simulated)
+        run: sleep 5 && echo "🚀 deployed"
+
+      - name: "M2: report the production deploy"
+        if: inputs.environment == 'production'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          jq -n --arg v "${{ steps.commit.outputs.version }}" --arg s "${{ steps.commit.outputs.sha }}" \
+            '{event_type: "deployed", client_payload: {version: $v, sha: $s, environment: "production"}}' \
+          | gh api "repos/${{ github.repository }}/dispatches" --input -
+          echo "## 🚀 v${{ steps.commit.outputs.version }} deployed to production and reported" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Non-production deploys report nothing
+        if: inputs.environment != 'production'
+        run: echo "## 🧪 Deployed to ${{ inputs.environment }}. No event sent." >> "$GITHUB_STEP_SUMMARY"

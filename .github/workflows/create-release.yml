@@ -1,0 +1,105 @@
+# Shared "Create release" workflow. Product repos call it from a small
+# workflow_dispatch file (see templates/create-release.yml).
+name: Create release
+
+on:
+  workflow_call:
+    inputs:
+      bump:
+        description: major, minor or patch
+        type: string
+        required: true
+      patch_of:
+        description: Only for patch. The release to patch, e.g. v2.16.0
+        type: string
+        default: ''
+      proceed_with_unmerged:
+        description: Create it even if older releases are not merged into master
+        type: boolean
+        default: false
+      main_branch:
+        type: string
+        default: master
+      allowed_team:
+        description: GitHub team slug allowed to run this. Empty = anyone with write access
+        type: string
+        default: ''
+      tooling_ref:
+        description: Version of release-tooling to run. Keep it the same as the @ref in `uses:`
+        type: string
+        default: v1
+    secrets:
+      RELEASE_BOT_APP_ID:
+        required: true
+      RELEASE_BOT_PRIVATE_KEY:
+        required: true
+    outputs:
+      branch:
+        value: ${{ jobs.create.outputs.branch }}
+      version:
+        value: ${{ jobs.create.outputs.version }}
+
+# One release created at a time per repo.
+concurrency:
+  group: release-tooling-create-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.create.outputs.branch }}
+      version: ${{ steps.create.outputs.version }}
+    steps:
+      - name: Get a release bot token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }},release-tooling
+
+      - name: Check permission
+        if: inputs.allowed_team != ''
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          TEAM: ${{ inputs.allowed_team }}
+        run: |
+          state=$(gh api "orgs/${{ github.repository_owner }}/teams/$TEAM/memberships/${{ github.actor }}" --jq .state 2>/dev/null || true)
+          if [ "$state" != "active" ]; then
+            echo "## ⛔ ${{ github.actor }} is not in the $TEAM team, so they can't create releases." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Check out the repo (all branches and tags)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.token.outputs.token }}
+          fetch-depth: 0
+          path: repo
+
+      - name: Check out release-tooling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/release-tooling
+          ref: ${{ inputs.tooling_ref }}
+          token: ${{ steps.token.outputs.token }}
+          path: .release-tooling
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Create release
+        id: create
+        env:
+          REPO_DIR: repo
+          BUMP: ${{ inputs.bump }}
+          PATCH_OF: ${{ inputs.patch_of }}
+          PROCEED_WITH_UNMERGED: ${{ inputs.proceed_with_unmerged }}
+          MAIN_BRANCH: ${{ inputs.main_branch }}
+        run: node .release-tooling/src/cli.mjs create-release

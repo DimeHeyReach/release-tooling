@@ -1,0 +1,15 @@
+# Installed into product repos as .github/workflows/deployed.yml by release-tooling's Manage repo workflow.
+# Runs only when the repo variable RELEASE_TOOLING_MODE is warn or enforce.
+# Runs when Microtica reports a production deploy (repository_dispatch).
+# Note: repository_dispatch only runs workflows from the default branch (master).
+name: Release deployed
+
+on:
+  repository_dispatch:
+    types: [deployed]
+
+jobs:
+  deployed:
+    if: contains(fromJSON('["warn","enforce"]'), vars.RELEASE_TOOLING_MODE)
+    uses: HeyReach/release-tooling/.github/workflows/deployed.yml@v1
+    secrets: inherit

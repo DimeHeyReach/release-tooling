@@ -1,0 +1,99 @@
+# Shared PR checks. Product repos call it on pull requests into master and
+# release/** (see templates/source-check.yml). Make both checks required:
+#  - "Release source check" on master and release/*
+#  - "Release merge gate"   on master (passes only while the release is live)
+name: Release checks
+
+on:
+  workflow_call:
+    inputs:
+      main_branch:
+        type: string
+        default: master
+      single_rc:
+        description: Allow only one rc/* branch per major/minor release (off for now, to be revisited)
+        type: boolean
+        default: false
+      tooling_ref:
+        description: Version of release-tooling to run. Keep it the same as the @ref in `uses:`
+        type: string
+        default: v1
+    secrets:
+      RELEASE_BOT_APP_ID:
+        required: true
+      RELEASE_BOT_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    name: Release source check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get a release bot token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }},release-tooling
+
+      - name: Check out release-tooling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/release-tooling
+          ref: ${{ inputs.tooling_ref }}
+          token: ${{ steps.token.outputs.token }}
+          path: .release-tooling
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check source branch
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MAIN_BRANCH: ${{ inputs.main_branch }}
+          SINGLE_RC: ${{ inputs.single_rc }}
+        run: node .release-tooling/src/cli.mjs source-check
+
+  gate:
+    name: Release merge gate
+    if: github.event.pull_request.base.ref == inputs.main_branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get a release bot token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: release-tooling
+
+      - name: Check out release-tooling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/release-tooling
+          ref: ${{ inputs.tooling_ref }}
+          token: ${{ steps.token.outputs.token }}
+          path: .release-tooling
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Is this release live in production?
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          MAIN_BRANCH: ${{ inputs.main_branch }}
+        run: node .release-tooling/src/cli.mjs merge-gate

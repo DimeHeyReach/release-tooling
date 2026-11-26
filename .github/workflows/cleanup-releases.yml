@@ -1,0 +1,74 @@
+# Shared cleanup: deletes release branches merged into master more than N days ago (tags stay). Product repos call it from templates/cleanup-releases.yml.
+name: Clean up releases
+
+on:
+  workflow_call:
+    inputs:
+      days:
+        type: number
+        default: 90
+      dry_run:
+        description: Only show what would be deleted
+        type: boolean
+        default: false
+      main_branch:
+        type: string
+        default: master
+      tooling_ref:
+        description: Version of release-tooling to run. Keep it the same as the @ref in `uses:`
+        type: string
+        default: v1
+    secrets:
+      RELEASE_BOT_APP_ID:
+        required: true
+      RELEASE_BOT_PRIVATE_KEY:
+        required: true
+
+# Shares the lock with the release automation: never change release branches at the same time.
+concurrency:
+  group: release-tooling-sync-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: Clean up releases
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get a release bot token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }},release-tooling
+
+      - name: Check out the repo (all branches and tags)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.token.outputs.token }}
+          fetch-depth: 0
+          path: repo
+
+      - name: Check out release-tooling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/release-tooling
+          ref: ${{ inputs.tooling_ref }}
+          token: ${{ steps.token.outputs.token }}
+          path: .release-tooling
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Clean up
+        env:
+          REPO_DIR: repo
+          DAYS: ${{ inputs.days }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          MAIN_BRANCH: ${{ inputs.main_branch }}
+        run: node .release-tooling/src/cli.mjs cleanup

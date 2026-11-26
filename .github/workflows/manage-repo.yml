@@ -1,0 +1,59 @@
+# Turn the release process on, to warn-only, or off for one repo:
+# Actions → Manage repo → Run workflow. Runs from release-tooling itself.
+#   off      everything in that repo is skipped, protection rules removed
+#   warn     workflows installed (via a PR) and running; nothing blocks merges
+#   enforce  warn + branch protection rules that make the checks block merges
+name: Manage repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Repo name (same owner as release-tooling), e.g. release-tooling-demo
+        type: string
+        required: true
+      mode:
+        description: What to turn it to
+        type: choice
+        options: [warn, enforce, off]
+        default: warn
+      demo:
+        description: Also install the "Simulate deploy" workflow (demo repos only)
+        type: boolean
+        default: false
+      main_branch:
+        type: string
+        default: master
+
+permissions:
+  contents: read
+
+jobs:
+  manage:
+    name: ${{ inputs.repository }} → ${{ inputs.mode }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get a release bot token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ inputs.repository }}
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Apply
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          TARGET_REPO: ${{ github.repository_owner }}/${{ inputs.repository }}
+          MODE: ${{ inputs.mode }}
+          DEMO: ${{ inputs.demo }}
+          APP_ID: ${{ secrets.RELEASE_BOT_APP_ID }}
+          MAIN_BRANCH: ${{ inputs.main_branch }}
+        run: node src/cli.mjs manage

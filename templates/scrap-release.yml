@@ -1,0 +1,21 @@
+# Installed into product repos as .github/workflows/scrap-release.yml by release-tooling's Manage repo workflow.
+# Runs only when the repo variable RELEASE_TOOLING_MODE is warn or enforce.
+# Adds Actions → Scrap release → Run workflow.
+name: Scrap release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The release to scrap, e.g. v2.16.0. This can't be undone and the number is never reused
+        type: string
+        required: true
+
+jobs:
+  scrap:
+    if: contains(fromJSON('["warn","enforce"]'), vars.RELEASE_TOOLING_MODE)
+    uses: HeyReach/release-tooling/.github/workflows/scrap-release.yml@v1
+    with:
+      version: ${{ inputs.version }}
+      # allowed_team: release-managers   # uncomment once the team exists
+    secrets: inherit

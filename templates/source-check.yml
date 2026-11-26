@@ -1,0 +1,17 @@
+# Installed into product repos as .github/workflows/source-check.yml by release-tooling's Manage repo workflow.
+# Runs only when the repo variable RELEASE_TOOLING_MODE is warn or enforce.
+# Runs on every PR into master or a release branch. "edited" re-runs it
+# when someone changes the PR's target branch; "labeled"/"unlabeled" re-run
+# the merge gate when the deployed label moves.
+name: Release checks
+
+on:
+  pull_request:
+    branches: [master, 'release/**']
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+
+jobs:
+  source:
+    if: contains(fromJSON('["warn","enforce"]'), vars.RELEASE_TOOLING_MODE)
+    uses: HeyReach/release-tooling/.github/workflows/source-check.yml@v1
+    secrets: inherit
