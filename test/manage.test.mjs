@@ -7,7 +7,7 @@ const templatesDir = fileURLToPath(new URL('../templates', import.meta.url));
 const repo = 'DimeHeyReach/release-tooling-demo';
 
 /** A tiny GitHub for the repo-management endpoints. */
-function fakeRepo({ files = {}, rulesetsForbidden = false, existing = [] } = {}) {
+function fakeRepo({ files = {}, rulesetsForbidden = false, rulesetsUnavailable = false, existing = [] } = {}) {
   const s = { variables: {}, labels: [], settings: {}, files: { ...files }, branchFiles: {}, refs: { master: 'm'.repeat(40) },
     pulls: [], rulesets: existing.map((r, i) => ({ id: i + 1, ...r })), calls: [] };
   const err = (status) => Object.assign(new Error(String(status)), { status });
@@ -35,7 +35,7 @@ function fakeRepo({ files = {}, rulesetsForbidden = false, existing = [] } = {})
     if (p === `/git/refs/heads/${INSTALL_BRANCH}` && method === 'PATCH') { s.refs[INSTALL_BRANCH] = body.sha; return {}; }
     if (p.startsWith('/pulls?state=open') && method === 'GET') return s.pulls.filter((x) => x.state === 'open');
     if (p === '/pulls' && method === 'POST') { const pr = { number: s.pulls.length + 1, state: 'open', ...body }; s.pulls.push(pr); return pr; }
-    if (p === '/rulesets' && method === 'GET') return s.rulesets;
+    if (p === '/rulesets' && method === 'GET') { if (rulesetsUnavailable) throw err(403); return s.rulesets; }
     if (p === '/rulesets' && method === 'POST') { if (rulesetsForbidden) throw err(403); s.rulesets.push({ id: s.rulesets.length + 10, ...body }); return {}; }
     if ((m = p.match(/^\/rulesets\/(\d+)$/))) {
       if (method === 'PUT') { Object.assign(s.rulesets.find((r) => r.id === Number(m[1])), body); return {}; }
@@ -143,4 +143,15 @@ test('unknown mode is refused', async () => {
 test('rulesets use the configured default branch', () => {
   const [main] = rulesets({ appId: 1, mainBranch: 'main' });
   assert.deepEqual(main.conditions.ref_name.include, ['refs/heads/main']);
+});
+
+test('warn and off still work where the plan has no rulesets at all', async () => {
+  for (const mode of ['warn', 'off']) {
+    const gh = fakeRepo({ rulesetsUnavailable: true });
+    const r = await run(gh, mode);
+    assert.equal(gh.s.variables.RELEASE_TOOLING_MODE, mode);
+    assert.match(r.notes[0], /not available for this repo on its current plan/);
+  }
+  const r = await run(fakeRepo({ rulesetsUnavailable: true }), 'enforce');
+  assert.match(r.notes[0], /free personal plan/);
 });

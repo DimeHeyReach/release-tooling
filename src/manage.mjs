@@ -204,10 +204,15 @@ export async function manageRepo({ github, repo, mode, templatesDir, appId, main
   try {
     result.rulesets = await applyRulesets(github, repo, rulesets({ appId, mainBranch }), mode);
   } catch (err) {
-    if (mode !== 'enforce') throw err;
-    result.notes.push(err.status === 403
-      ? 'GitHub refused the branch rulesets (403). Private repos on a free personal plan cannot use them: make the repo public or upgrade the plan.'
-      : `Rulesets failed: ${err.message}`);
+    if (err.status !== 403 && mode !== 'enforce') throw err;
+    if (err.status === 403 && mode !== 'enforce') {
+      // Rulesets not available on this plan: nothing to remove, warn/off still work.
+      result.notes.push('Branch rulesets are not available for this repo on its current plan; enforce mode will not work here.');
+    } else {
+      result.notes.push(err.status === 403
+        ? 'GitHub refused the branch rulesets (403). Private repos on a free personal plan cannot use them: make the repo public or upgrade the plan.'
+        : `Rulesets failed: ${err.message}`);
+    }
   }
   if (result.install?.pr) result.notes.push(`Merge PR #${result.install.pr} to finish installing the workflows.`);
   return result;
