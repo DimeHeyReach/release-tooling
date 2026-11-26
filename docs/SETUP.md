@@ -30,12 +30,11 @@ Org: **Org settings → Developer settings → GitHub Apps → New GitHub App** 
 
 Set **all** of these before installing. Adding a permission later means accepting it again on the installation (Settings → Applications → Installed GitHub Apps → Configure → Review request), and until then runs fail with `403 Resource not accessible by integration`.
 
-The private key is created under **Credentials → Key pairs → New key** on the App's page; the `.pem` file downloads once.
 
 Create it, then:
 
 1. Note the **App ID** on the app's page.
-2. **Generate a private key** (bottom of the page). A `.pem` file downloads.
+2. **Credentials → Key pairs → New key**. A `.pem` file downloads.
 3. **Install App** → choose **Only select repositories** → `release-tooling` plus every repo that will use it.
 
 ## 2. Add the bot's secrets
