@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { manageRepo, summarizeManage, workflowFiles, rulesets, INSTALL_BRANCH, RULESET_MAIN, RULESET_RELEASES } from '../src/manage.mjs';
 
 const templatesDir = fileURLToPath(new URL('../templates', import.meta.url));
-const repo = 'DimeHeyReach/release-tooling-demo';
+const repo = 'DimeHeyReach/release-process-demo';
 
 /** A tiny GitHub for the repo-management endpoints. */
 function fakeRepo({ files = {}, rulesetsForbidden = false, rulesetsUnavailable = false, autoMergeIgnored = false, existing = [] } = {}) {

@@ -52,7 +52,7 @@ jobs:
           read -r state description < <(gh api "repos/${{ github.repository }}/commits/$SHA/statuses" \
             --jq '[.[] | select(.context == "release-ready")][0] | "\(.state) \(.description)"')
           if [ "$state" != "success" ]; then
-            echo "## ⛔ Deploy refused: ${description:-no release-ready status yet}" >> "$GITHUB_STEP_SUMMARY"
+            echo "## ⛔ Deploy refused: ${description:-no release-ready status yet}" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
           echo "✅ release-ready"
@@ -68,8 +68,8 @@ jobs:
           jq -n --arg v "${{ steps.commit.outputs.version }}" --arg s "${{ steps.commit.outputs.sha }}" \
             '{event_type: "deployed", client_payload: {version: $v, sha: $s, environment: "production"}}' \
           | gh api "repos/${{ github.repository }}/dispatches" --input -
-          echo "## 🚀 v${{ steps.commit.outputs.version }} deployed to production and reported" >> "$GITHUB_STEP_SUMMARY"
+          echo "## 🚀 v${{ steps.commit.outputs.version }} deployed to production and reported" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Non-production deploys report nothing
         if: inputs.environment != 'production'
-        run: echo "## 🧪 Deployed to ${{ inputs.environment }}. No event sent." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "## 🧪 Deployed to ${{ inputs.environment }}. No event sent." | tee -a "$GITHUB_STEP_SUMMARY"

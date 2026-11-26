@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       repository:
-        description: Repo name (same owner as release-tooling), e.g. release-tooling-demo
+        description: Repo name (same owner as release-tooling), e.g. release-process-demo
         type: string
         required: true
       mode:

@@ -1,8 +1,8 @@
 # Demo walkthrough
 
-A full run of the release process on `release-tooling-demo`, in about 20 minutes. Each step says what to click and what everyone should see.
+A full run of the release process on `release-process-demo`, in about 20 minutes. Each step says what to click and what everyone should see.
 
-**Before the demo:** the demo repo is in **enforce** mode (release-tooling → Actions → Manage repo → `release-tooling-demo`, mode enforce, demo ticked) and its install PR is merged. Keep two tabs open: the demo repo's **Actions** and **Pull requests**.
+**Before the demo:** the demo repo is in **enforce** mode (release-tooling → Actions → Manage repo → `release-process-demo`, mode enforce, demo ticked) and its install PR is merged. Keep two tabs open: the demo repo's **Actions** and **Pull requests**.
 
 ## 1. Cut a release
 
@@ -94,4 +94,4 @@ Create release → **patch**, patch of `v0.2.0` → `release/v0.2.1`, cut from t
 
 ## 11. Off switch
 
-Manage repo → `release-tooling-demo`, mode **off**. Push anything: every release workflow shows as skipped, and the rulesets are gone.
+Manage repo → `release-process-demo`, mode **off**. Push anything: every release workflow shows as skipped, and the rulesets are gone.
