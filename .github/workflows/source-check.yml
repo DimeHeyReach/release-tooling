@@ -24,9 +24,11 @@ on:
       RELEASE_BOT_PRIVATE_KEY:
         required: true
 
+# Only contents:read for the built-in token: repos with GitHub's restricted
+# default refuse to start a shared workflow that asks for more. Everything
+# that talks to the API uses the release bot's token instead.
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
   check:
