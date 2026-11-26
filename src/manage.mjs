@@ -14,6 +14,8 @@ export { INSTALL_BRANCH };
 
 export const MODES = ['off', 'warn', 'enforce'];
 export const MODE_VARIABLE = 'RELEASE_TOOLING_MODE';
+export const SINGLE_RC_VARIABLE = 'RELEASE_TOOLING_SINGLE_RC';
+export const SINGLE_RC_CHOICES = ['keep', 'on', 'off'];
 export const RULESET_MAIN = 'release-tooling: default branch';
 export const RULESET_RELEASES = 'release-tooling: release branches';
 
@@ -102,12 +104,12 @@ export function rulesets({ appId, mainBranch = 'master' }) {
 
 const isNotFound = (err) => err.status === 404;
 
-async function setVariable(github, repo, value) {
+async function setVariable(github, repo, value, name = MODE_VARIABLE) {
   try {
-    await github.request('PATCH', `/repos/${repo}/actions/variables/${MODE_VARIABLE}`, { name: MODE_VARIABLE, value });
+    await github.request('PATCH', `/repos/${repo}/actions/variables/${name}`, { name, value });
   } catch (err) {
     if (!isNotFound(err)) throw err;
-    await github.request('POST', `/repos/${repo}/actions/variables`, { name: MODE_VARIABLE, value });
+    await github.request('POST', `/repos/${repo}/actions/variables`, { name, value });
   }
 }
 
@@ -213,8 +215,9 @@ async function setReleaseAutoMerge(github, repo, mainBranch, on) {
   return numbers;
 }
 
-export async function manageRepo({ github, repo, mode, templatesDir, appId, mainBranch = 'master', demo = false }) {
+export async function manageRepo({ github, repo, mode, templatesDir, appId, mainBranch = 'master', demo = false, singleRc = 'keep' }) {
   if (!MODES.includes(mode)) throw new Error(`Unknown mode "${mode}". Use ${MODES.join(', ')}.`);
+  if (!SINGLE_RC_CHOICES.includes(singleRc)) throw new Error(`Unknown one-RC choice "${singleRc}". Use ${SINGLE_RC_CHOICES.join(', ')}.`);
   const result = { repo, mode, install: null, rulesets: [], notes: [], autoMergeOff: [], autoMergeOn: [] };
 
   if (mode !== 'enforce') result.autoMergeOff = await setReleaseAutoMerge(github, repo, mainBranch, false);
@@ -229,6 +232,9 @@ export async function manageRepo({ github, repo, mode, templatesDir, appId, main
     result.install = await installFiles(github, repo, workflowFiles(templatesDir, repo.split('/')[0], { demo }), mainBranch);
   }
   await setVariable(github, repo, mode);
+  // 'keep' leaves the rule as it is, so running Manage repo for other reasons never changes it.
+  if (singleRc !== 'keep') await setVariable(github, repo, String(singleRc === 'on'), SINGLE_RC_VARIABLE);
+  result.singleRc = singleRc;
   try {
     result.rulesets = await applyRulesets(github, repo, rulesets({ appId, mainBranch }), mode);
   } catch (err) {
@@ -251,6 +257,7 @@ export async function manageRepo({ github, repo, mode, templatesDir, appId, main
 export function summarizeManage(r) {
   const label = { off: '⏸️ off', warn: '👀 warn (reports only)', enforce: '🔒 enforce (blocks merges)' }[r.mode];
   const lines = [`## ${r.repo}: ${label}`, '', `- \`${MODE_VARIABLE}\` = \`${r.mode}\`.`];
+  if (r.singleRc && r.singleRc !== 'keep') lines.push(`- One RC per release: ${r.singleRc} (\`${SINGLE_RC_VARIABLE}\` = \`${r.singleRc === 'on'}\`).`);
   if (r.install) {
     lines.push(r.install.pr
       ? `- Workflow files: PR #${r.install.pr} (${r.install.changed.length} file(s)).`

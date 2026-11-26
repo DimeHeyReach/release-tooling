@@ -17,6 +17,11 @@ on:
         type: choice
         options: ['warn', 'enforce', 'off']   # quoted: YAML reads a bare off as false
         default: 'warn'
+      single_rc:
+        description: One RC per release (keep = leave as it is)
+        type: choice
+        options: ['keep', 'on', 'off']   # quoted: YAML reads bare on/off as booleans
+        default: 'keep'
       demo:
         description: Also install the "Simulate deploy" workflow (demo repos only)
         type: boolean
@@ -54,6 +59,7 @@ jobs:
           TARGET_REPO: ${{ github.repository_owner }}/${{ inputs.repository }}
           MODE: ${{ inputs.mode }}
           DEMO: ${{ inputs.demo }}
+          SINGLE_RC: ${{ inputs.single_rc }}
           APP_ID: ${{ secrets.RELEASE_BOT_APP_ID }}
           MAIN_BRANCH: ${{ inputs.main_branch }}
         run: node src/cli.mjs manage

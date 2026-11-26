@@ -196,3 +196,16 @@ test('back to enforce: auto-merge restored on open release PRs, only once the ru
   await run(noRules, 'enforce');
   assert.deepEqual(noRules.s.graphql, [], 'no rules means no required approval: do not auto-merge');
 });
+
+test('one-RC switch: on/off sets the variable, keep leaves it alone', async () => {
+  const gh = fakeRepo();
+  let r = await run(gh, 'warn', { singleRc: 'on' });
+  assert.equal(gh.s.variables.RELEASE_TOOLING_SINGLE_RC, 'true');
+  assert.match(summarizeManage(r), /One RC per release: on/);
+  r = await run(gh, 'enforce');
+  assert.equal(gh.s.variables.RELEASE_TOOLING_SINGLE_RC, 'true', 'keep (default) does not change it');
+  assert.doesNotMatch(summarizeManage(r), /One RC per release/);
+  await run(gh, 'warn', { singleRc: 'off' });
+  assert.equal(gh.s.variables.RELEASE_TOOLING_SINGLE_RC, 'false');
+  await assert.rejects(run(gh, 'warn', { singleRc: 'yes' }), /Unknown one-RC choice/);
+});

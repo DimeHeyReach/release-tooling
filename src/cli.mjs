@@ -150,6 +150,7 @@ const commands = {
       repo: env.TARGET_REPO,
       mode: env.MODE,
       demo: env.DEMO === 'true',
+      singleRc: env.SINGLE_RC || 'keep',
       appId: env.APP_ID,
       mainBranch: env.MAIN_BRANCH || 'master',
       templatesDir: fileURLToPath(new URL('../templates', import.meta.url)),
