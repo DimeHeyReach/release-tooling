@@ -1,5 +1,7 @@
 # Setup
 
+> **Plan requirements.** Auto-merge and branch rulesets (enforce mode) need a public repo, or a paid plan (Pro, Team, Enterprise) for private repos. On a free private repo GitHub silently ignores auto-merge and refuses rulesets; warn mode still works there. The HeyReach org (Team plan) supports both.
+
 Everything below is done once per owner (a personal account or the HeyReach org), except step 5, which is per repo. `<owner>` is that account or org.
 
 ## 1. Create the release bot (GitHub App)
@@ -25,6 +27,10 @@ Org: **Org settings → Developer settings → GitHub Apps → New GitHub App** 
 
 - **Organization permissions** (org only): Members → Read-only, for the `allowed_team` check.
 - **Where can this app be installed:** Only on this account.
+
+Set **all** of these before installing. Adding a permission later means accepting it again on the installation (Settings → Applications → Installed GitHub Apps → Configure → Review request), and until then runs fail with `403 Resource not accessible by integration`.
+
+The private key is created under **Credentials → Key pairs → New key** on the App's page; the `.pem` file downloads once.
 
 Create it, then:
 
