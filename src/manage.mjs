@@ -139,8 +139,9 @@ async function installFiles(github, repo, files, mainBranch) {
   try {
     await github.request('POST', `/repos/${repo}/git/refs`, { ref: `refs/heads/${INSTALL_BRANCH}`, sha: base.object.sha });
   } catch (err) {
-    if (err.status !== 422) throw err; // branch exists from an earlier run: update it
-    await github.request('PATCH', `/repos/${repo}/git/refs/heads/${INSTALL_BRANCH}`, { sha: base.object.sha, force: true });
+    // Branch exists from an earlier run: keep it and update the files on it.
+    // (Resetting it would leave the open PR empty for a moment, and GitHub closes empty PRs.)
+    if (err.status !== 422) throw err;
   }
   for (const file of changed) {
     let sha;

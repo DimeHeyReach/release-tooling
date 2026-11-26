@@ -93,6 +93,7 @@ test('only changed files go into the PR; running twice reuses it', async () => {
   assert.deepEqual(r.install.changed, ['.github/workflows/deployed.yml']);
   await run(gh, 'warn');
   assert.equal(gh.s.pulls.length, 1);
+  assert.ok(!gh.s.calls.some((c) => c.startsWith('PATCH') && c.includes('/git/refs/')), 'never resets the install branch (GitHub would close the PR)');
 });
 
 test('enforce: both rulesets created, bot can bypass on release branches only', async () => {
