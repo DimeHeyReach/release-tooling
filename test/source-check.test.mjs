@@ -78,3 +78,11 @@ test('no GitHub call needed for master, patch targets, or when singleRc is off',
   assert.ok((await runSourceCheck(gh, { base: 'master', head: 'release/v2.1.0', mainBranch: 'master' })).ok);
   assert.ok((await runSourceCheck(gh, { base: 'release/v2.1.1', head: 'hotfix/HR-1', mainBranch: 'master' })).ok);
 });
+
+test('the release bot\'s workflow-update PR may go into master; a look-alike may not', () => {
+  const bot = 'dime-release-bot[bot]';
+  assert.ok(check('master', 'release-tooling/install', { author: bot, botLogin: bot }).ok);
+  assert.ok(!check('master', 'release-tooling/install', { author: 'someone', botLogin: bot }).ok);
+  assert.ok(!check('master', 'release-tooling/install', { author: bot }).ok, 'no bot identity known: refuse');
+  assert.ok(!check('master', 'release-tooling/other', { author: bot, botLogin: bot }).ok);
+});

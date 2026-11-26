@@ -4,13 +4,17 @@
 //                          off by default, to be revisited)
 //  - into a patch release: only hotfix/HR-<ticket>_<description>
 import { parseReleaseBranch, checkReleaseSource, isRcBranch } from './versions.mjs';
+import { isToolingUpdate } from './tooling-update.mjs';
 
 /**
  * Pure decision. `mergedIntoBase` is the list of PRs already merged into the
  * target branch ({ number, head }); the current PR is ignored if present.
  */
-export function evaluateSourceCheck({ base, head, number, mainBranch = 'master', mergedIntoBase = [], singleRc = false }) {
+export function evaluateSourceCheck({ base, head, number, mainBranch = 'master', mergedIntoBase = [], singleRc = false, author, botLogin }) {
   if (base === mainBranch) {
+    if (isToolingUpdate({ head, author, botLogin })) {
+      return { ok: true, message: `Workflow update opened by ${botLogin}; may merge into ${mainBranch} once approved.` };
+    }
     return parseReleaseBranch(head)
       ? { ok: true, message: `\`${head}\` may merge into ${mainBranch}.` }
       : { ok: false, message: `Only release/vX.Y.Z branches may merge into ${mainBranch}, not "${head}".` };
@@ -37,8 +41,8 @@ export function evaluateSourceCheck({ base, head, number, mainBranch = 'master',
 }
 
 /** Runs the check for a pull_request event. */
-export async function runSourceCheck(github, { base, head, number, mainBranch, singleRc = false }) {
+export async function runSourceCheck(github, { base, head, number, mainBranch, singleRc = false, author, botLogin }) {
   const needsHistory = singleRc && base !== mainBranch && parseReleaseBranch(base)?.patch === 0;
   const mergedIntoBase = needsHistory ? await github.mergedPullsInto(base) : [];
-  return evaluateSourceCheck({ base, head, number, mainBranch, mergedIntoBase, singleRc });
+  return evaluateSourceCheck({ base, head, number, mainBranch, mergedIntoBase, singleRc, author, botLogin });
 }

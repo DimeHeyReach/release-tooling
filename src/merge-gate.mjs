@@ -2,9 +2,13 @@
 // release is the one live in production (it has the deployed label).
 import { parseReleaseBranch } from './versions.mjs';
 import { DEPLOYED_LABEL } from './deployed.mjs';
+import { isToolingUpdate } from './tooling-update.mjs';
 
-export function evaluateMergeGate({ base, head, labels, mainBranch = 'master' }) {
+export function evaluateMergeGate({ base, head, labels, mainBranch = 'master', author, botLogin }) {
   if (base !== mainBranch) return { ok: true, message: `Not a PR into ${mainBranch}; nothing to check.` };
+  if (isToolingUpdate({ head, author, botLogin })) {
+    return { ok: true, message: `Workflow update opened by ${botLogin}; not a release, so no deploy needed.` };
+  }
   if (!parseReleaseBranch(head)) {
     return { ok: false, message: `Only release branches may merge into ${mainBranch}.` };
   }

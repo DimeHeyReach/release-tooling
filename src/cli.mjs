@@ -53,6 +53,8 @@ const commands = {
       number: Number(env.PR_NUMBER),
       mainBranch: env.MAIN_BRANCH || 'master',
       singleRc: env.SINGLE_RC === 'true',
+      author: env.PR_AUTHOR,
+      botLogin: env.BOT_LOGIN,
     });
     writeSummary(`## ${result.ok ? '✅' : '⛔'} ${result.message}`);
     return result.ok ? 0 : 1;
@@ -161,6 +163,8 @@ const commands = {
       head: env.HEAD_REF,
       labels: JSON.parse(env.LABELS || '[]'),
       mainBranch: env.MAIN_BRANCH || 'master',
+      author: env.PR_AUTHOR,
+      botLogin: env.BOT_LOGIN,
     });
     writeSummary(`## ${result.ok ? '✅' : '⛔'} ${result.message}`);
     return result.ok ? 0 : 1;

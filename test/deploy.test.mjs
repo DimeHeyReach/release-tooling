@@ -215,3 +215,9 @@ test('deployed-sha marker is replaced, not duplicated', () => {
   assert.equal(twice.match(/deployed-sha=/g).length, 1);
   assert.equal(readDeployedSha('no marker'), null);
 });
+
+test('merge gate lets the bot\'s workflow-update PR through, nothing else', () => {
+  const bot = 'dime-release-bot[bot]';
+  assert.ok(evaluateMergeGate({ base: 'master', head: 'release-tooling/install', labels: [], author: bot, botLogin: bot }).ok);
+  assert.ok(!evaluateMergeGate({ base: 'master', head: 'release-tooling/install', labels: [], author: 'mallory', botLogin: bot }).ok);
+});

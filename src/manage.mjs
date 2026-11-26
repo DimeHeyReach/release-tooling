@@ -8,10 +8,12 @@
 // on repos with a protected default branch and someone always reviews it.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { INSTALL_BRANCH } from './tooling-update.mjs';
+
+export { INSTALL_BRANCH };
 
 export const MODES = ['off', 'warn', 'enforce'];
 export const MODE_VARIABLE = 'RELEASE_TOOLING_MODE';
-export const INSTALL_BRANCH = 'release-tooling/install';
 export const RULESET_MAIN = 'release-tooling: default branch';
 export const RULESET_RELEASES = 'release-tooling: release branches';
 
