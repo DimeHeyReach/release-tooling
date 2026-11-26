@@ -135,3 +135,11 @@ test('releases already merged into master are not synced again', async () => {
   assert.deepEqual(results, []);
   assert.equal(sb.originSha('release/v2.16.0'), before);
 });
+
+test('outside enforce mode the release PR is opened without auto-merge', async () => {
+  setup();
+  const github = createFakeGitHub();
+  const r = await merged(sb.runner(), github, { autoMerge: false });
+  assert.deepEqual(github.state.autoMerge, []);
+  assert.match(summarizeReleaseMerge(r), /Auto-merge off \(not in enforce mode\)/);
+});

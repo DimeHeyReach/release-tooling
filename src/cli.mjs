@@ -70,6 +70,7 @@ const commands = {
       merged: env.MERGED === 'true',
       mainBranch: env.MAIN_BRANCH || 'master',
       identity: identity(),
+      autoMerge: env.MODE === 'enforce',
     });
     writeSummary(summarizeReleaseMerge(result));
     return 0; // conflicts and missing auto-merge are reported on the PR, not as a failed run

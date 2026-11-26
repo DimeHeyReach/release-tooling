@@ -82,6 +82,7 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           MERGED: ${{ github.event.pull_request.merged }}
+          MODE: ${{ vars.RELEASE_TOOLING_MODE }}
           MAIN_BRANCH: ${{ inputs.main_branch }}
           BOT_NAME: ${{ steps.bot.outputs.name }}
           BOT_EMAIL: ${{ steps.bot.outputs.email }}

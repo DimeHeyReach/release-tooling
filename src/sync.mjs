@@ -40,7 +40,7 @@ export async function syncAllReleases({ git, github, repository, mainBranch, ide
 }
 
 /** A PR into a release branch was closed. */
-export async function onReleaseMerge({ git, github, repository, base, head, merged, mainBranch, identity }) {
+export async function onReleaseMerge({ git, github, repository, base, head, merged, mainBranch, identity, autoMerge = true }) {
   if (!merged) return { skipped: 'PR closed without merging.' };
   if (!parseReleaseBranch(base)) return { skipped: `${base} is not a release branch.` };
 
@@ -56,8 +56,10 @@ export async function onReleaseMerge({ git, github, repository, base, head, merg
 
   const pr = await ensureReleasePr(github, { repository, branch: base, mainBranch });
   const sync = await syncRelease({ git, github, repository, branch: base, mainBranch, identity, pr });
-  const autoMergeError = await enableAutoMerge(github, pr.nodeId);
-  return { deleted, head, pr: pr.number, prCreated: pr.created, sync, autoMergeError };
+  // Auto-merge only where the approval is enforced; otherwise it would merge
+  // a deployed release with nobody approving it.
+  const autoMergeError = autoMerge ? await enableAutoMerge(github, pr.nodeId) : null;
+  return { deleted, head, pr: pr.number, prCreated: pr.created, sync, autoMerge, autoMergeError };
 }
 
 export function summarizeSync(results) {
@@ -80,6 +82,7 @@ export function summarizeReleaseMerge(r) {
   lines.push(r.sync.status === 'conflict'
     ? `- ⚠️ master could not be merged in. Conflicts: ${r.sync.files.map((f) => `\`${f}\``).join(', ')}`
     : `- master: ${r.sync.status === 'merged' ? 'merged in' : 'already up to date'}.`);
-  lines.push(r.autoMergeError ? `- ⚠️ Auto-merge not enabled: ${r.autoMergeError}` : '- Auto-merge enabled.');
+  if (r.autoMerge === false) lines.push('- Auto-merge off (not in enforce mode): merge the release PR by hand once approved.');
+  else lines.push(r.autoMergeError ? `- ⚠️ Auto-merge not enabled: ${r.autoMergeError}` : '- Auto-merge enabled.');
   return lines.join('\n');
 }

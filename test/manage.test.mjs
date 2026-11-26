@@ -9,7 +9,7 @@ const repo = 'DimeHeyReach/release-process-demo';
 /** A tiny GitHub for the repo-management endpoints. */
 function fakeRepo({ files = {}, rulesetsForbidden = false, rulesetsUnavailable = false, autoMergeIgnored = false, existing = [] } = {}) {
   const s = { variables: {}, labels: [], settings: {}, files: { ...files }, branchFiles: {}, refs: { master: 'm'.repeat(40) },
-    pulls: [], rulesets: existing.map((r, i) => ({ id: i + 1, ...r })), calls: [] };
+    pulls: [], rulesets: existing.map((r, i) => ({ id: i + 1, ...r })), calls: [], releasePulls: [], graphql: [] };
   const err = (status) => Object.assign(new Error(String(status)), { status });
   const request = async (method, path, body) => {
     s.calls.push(`${method} ${path}`);
@@ -33,7 +33,9 @@ function fakeRepo({ files = {}, rulesetsForbidden = false, rulesetsUnavailable =
     if (p === '/git/ref/heads/master') return { object: { sha: s.refs.master } };
     if (p === '/git/refs' && method === 'POST') { if (s.refs[INSTALL_BRANCH]) throw err(422); s.refs[INSTALL_BRANCH] = body.sha; return {}; }
     if (p === `/git/refs/heads/${INSTALL_BRANCH}` && method === 'PATCH') { s.refs[INSTALL_BRANCH] = body.sha; return {}; }
+    if (p.startsWith('/pulls?state=open&base=') && method === 'GET') return s.releasePulls;
     if (p.startsWith('/pulls?state=open') && method === 'GET') return s.pulls.filter((x) => x.state === 'open');
+    if (path === '/graphql' && method === 'POST') { s.graphql.push(body.variables.id); return { data: {} }; }
     if (p === '/pulls' && method === 'POST') { const pr = { number: s.pulls.length + 1, state: 'open', ...body }; s.pulls.push(pr); return pr; }
     if (p === '/rulesets' && method === 'GET') { if (rulesetsUnavailable) throw err(403); return s.rulesets; }
     if (p === '/rulesets' && method === 'POST') { if (rulesetsForbidden) throw err(403); s.rulesets.push({ id: s.rulesets.length + 10, ...body }); return {}; }
@@ -160,4 +162,25 @@ test('warn and off still work where the plan has no rulesets at all', async () =
 test('auto-merge silently ignored by GitHub is reported', async () => {
   const r = await run(fakeRepo({ autoMergeIgnored: true }), 'warn');
   assert.ok(r.notes.some((n) => /did not allow auto-merge/.test(n)));
+});
+
+test('leaving enforce turns auto-merge off on open release PRs first', async () => {
+  for (const mode of ['warn', 'off']) {
+    const gh = fakeRepo();
+    gh.s.releasePulls = [
+      { number: 5, node_id: 'PR_5', auto_merge: { merge_method: 'merge' }, head: { ref: 'release/v0.2.0' } },
+      { number: 6, node_id: 'PR_6', auto_merge: null, head: { ref: 'release/v0.3.0' } },
+      { number: 7, node_id: 'PR_7', auto_merge: { merge_method: 'merge' }, head: { ref: 'release-tooling/install' } },
+    ];
+    const r = await run(gh, mode);
+    assert.deepEqual(gh.s.graphql, ['PR_5'], mode);
+    assert.match(summarizeManage(r), /Auto-merge turned off on release PR #5/);
+    const disableAt = gh.s.calls.indexOf('POST /graphql');
+    const rulesetsAt = gh.s.calls.findIndex((c) => c.includes('/rulesets'));
+    assert.ok(disableAt < rulesetsAt, 'auto-merge is off before the rules go');
+  }
+  const gh = fakeRepo();
+  gh.s.releasePulls = [{ number: 5, node_id: 'PR_5', auto_merge: { merge_method: 'merge' }, head: { ref: 'release/v0.2.0' } }];
+  await run(gh, 'enforce');
+  assert.deepEqual(gh.s.graphql, [], 'enforce leaves auto-merge alone');
 });

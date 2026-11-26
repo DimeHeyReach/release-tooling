@@ -194,9 +194,28 @@ async function applyRulesets(github, repo, wanted, mode) {
   return done;
 }
 
+/**
+ * Leaving enforce removes the required approval. Any release PR with auto-merge
+ * on would then merge by itself, so switch auto-merge off on them first.
+ */
+async function disableReleaseAutoMerge(github, repo, mainBranch) {
+  const open = await github.request('GET', `/repos/${repo}/pulls?state=open&base=${encodeURIComponent(mainBranch)}`);
+  const numbers = [];
+  for (const pr of open.filter((p) => p.auto_merge && p.head.ref.startsWith('release/'))) {
+    await github.request('POST', '/graphql', {
+      query: 'mutation($id: ID!) { disablePullRequestAutoMerge(input: { pullRequestId: $id }) { clientMutationId } }',
+      variables: { id: pr.node_id },
+    });
+    numbers.push(pr.number);
+  }
+  return numbers;
+}
+
 export async function manageRepo({ github, repo, mode, templatesDir, appId, mainBranch = 'master', demo = false }) {
   if (!MODES.includes(mode)) throw new Error(`Unknown mode "${mode}". Use ${MODES.join(', ')}.`);
-  const result = { repo, mode, install: null, rulesets: [], notes: [] };
+  const result = { repo, mode, install: null, rulesets: [], notes: [], autoMergeOff: [] };
+
+  if (mode !== 'enforce') result.autoMergeOff = await disableReleaseAutoMerge(github, repo, mainBranch);
 
   if (mode !== 'off') {
     await ensureLabels(github, repo);
@@ -234,6 +253,7 @@ export function summarizeManage(r) {
       : '- Workflow files: already up to date.');
     lines.push('- Labels created; merge commits allowed; auto-merge requested.');
   }
+  if (r.autoMergeOff.length) lines.push(`- Auto-merge turned off on release PR ${r.autoMergeOff.map((n) => `#${n}`).join(', ')} (no approval is required outside enforce).`);
   for (const r2 of r.rulesets) lines.push(`- Ruleset ${r2}.`);
   if (r.mode !== 'enforce' && !r.rulesets.length) lines.push('- No rulesets (nothing blocks merges).');
   for (const n of r.notes) lines.push(`- ⚠️ ${n}`);
