@@ -33,6 +33,8 @@ Each product repo has a variable `RELEASE_TOOLING_MODE`:
 | `warn` | Everything runs and reports; nothing blocks merges |
 | `enforce` | Plus branch rulesets: only the bot creates release branches, checks are required, `master` needs an approval |
 
+A second variable, `RELEASE_TOOLING_SINGLE_RC` (`true`/`false`, default off), allows only one `rc/*` branch per major/minor release. Set it with the **One RC per release** option on Manage repo (`keep` leaves it unchanged).
+
 ## Labels and statuses
 
 | Name | Kind | Meaning |
@@ -73,7 +75,3 @@ Node 20+, no dependencies. Git behaviour is tested against throwaway repos on di
 | `templates/` | Workflow files installed into product repos |
 
 Releases of this repo are tags (`v1`, …). Product repos pin `@v1`; move the `v1` tag to ship a fix to all of them.
-
-## To revisit
-
-- **One RC per release**: `single_rc` in the source check. Built, off by default.
